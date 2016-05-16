@@ -20,10 +20,6 @@
 
 MODULE_LICENSE("GPL");
 
-#define LLD		"llddrvr"
-#define LLDMAJOR	33
-#define LLDMINOR	0
-#define LLDNUMDEVS	6
 
 struct t_struct {
 	int counter;
@@ -54,20 +50,20 @@ char *t_storage=t_buf;
 struct completion comp;
 DECLARE_COMPLETION(comp);
 
-struct j_node *create_j_node(int id, char *data, int len)
-{
+struct j_node *create_j_node(int id, char *data, int len) {
 	struct t_struct *file_info_local = &t_file_info;
-    struct j_node *node = (struct j_node *) kmalloc(sizeof(struct j_node), GFP_KERNEL);
+	struct j_node *node = (struct j_node *) kmalloc(sizeof(struct j_node),
+			GFP_KERNEL);
 
-    node->id = id;
-    node->data = data;
-    node->len = len;
+	node->id = id;
+	node->data = data;
+	node->len = len;
 
 	++file_info_local->counter;
 	node->entry = file_info_local->counter;
 
-    memory_buffer[memory_counter++] = node;
-    return node;
+	memory_buffer[memory_counter++] = node;
+	return node;
 }
 
 static int j_show(struct seq_file *m, void *v)
@@ -162,8 +158,6 @@ static ssize_t t_write (struct file *file, const char __user *buf, size_t count,
 {
 	int err, i = 0;
 	struct j_node *tmp;
-
-
 
 	err = copy_from_user(t_storage,buf,count);
 	if (err != 0)

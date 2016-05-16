@@ -8,3 +8,9 @@
 #define MYSTR1 "app input"
 #define MYSTR2 "app input"
 #define MYSTR3 "app input"
+
+#define LLD		"llddrvr"
+#define LLDMAJOR	33
+#define LLDMINOR	0
+#define LLDNUMDEVS	6
+

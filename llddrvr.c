@@ -16,6 +16,7 @@
 #include <linux/seq_file.h>
 #include <linux/jiffies.h>
 #include <linux/completion.h>
+#include "llddrvr.h"
 
 MODULE_LICENSE("GPL");
 
@@ -23,33 +24,28 @@ MODULE_LICENSE("GPL");
 #define LLDMAJOR	33
 #define LLDMINOR	0
 #define LLDNUMDEVS	6
-#define CMD0 0
-#define CMD1 1
-#define CMD2 2
 
 struct t_struct {
 	int counter;
     char *storage;
 };
 
-static struct t_struct t_file_info;
-
 static struct j_node {
 	char *data;
 	int id;
 	int len;
+	int entry;
 	struct list_head list;
 
 };
 
+static struct t_struct t_file_info;
 static struct j_node global_list;
 static struct proc_dir_entry* j_file;
 
 unsigned int counter = 0;
 int memory_counter = 0;
 unsigned int memory_buffer[4096];
-
-
 struct cdev cdev;
 dev_t  devno;
 char t_buf[4096];
@@ -58,52 +54,45 @@ char *t_storage=t_buf;
 struct completion comp;
 DECLARE_COMPLETION(comp);
 
-
 struct j_node *create_j_node(int id, char *data, int len)
 {
+	struct t_struct *file_info_local = &t_file_info;
     struct j_node *node = (struct j_node *) kmalloc(sizeof(struct j_node), GFP_KERNEL);
+
     node->id = id;
     node->data = data;
     node->len = len;
+
+	++file_info_local->counter;
+	node->entry = file_info_local->counter;
 
     memory_buffer[memory_counter++] = node;
     return node;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 static int j_show(struct seq_file *m, void *v)
 {
 	struct list_head *pos, *q;
 	struct j_node *tmp;
-	int i = 0;
-	int j = 0;
+	int i = 0, j = 0;
+
+	seq_printf(m, "\n\nLinkedlist write entries: %i\n", memory_counter);
 
 	list_for_each_safe(pos, q, &global_list.list)
 	{
-		tmp= list_entry(pos, struct j_node, list);
-		seq_printf(m, "%d\n %s \n", i, tmp->data);
+		tmp = list_entry(pos, struct j_node, list);
+		seq_printf(m, "%d:\n    %i %s \n", i, tmp->entry, tmp->data);
 
 		i++;
 	}
 
-	seq_printf(m, "used memory allocated %i\n", memory_counter);
+	seq_printf(m, "Memory allocations: %i\n", memory_counter);
 
 	for(j=0; j<memory_counter; j++) {
 		seq_printf(m, "%d ", memory_buffer[j]);
 	}
 
-	seq_printf(m, " \n" );
+	seq_printf(m, "\n\n\n" );
 
 	return 0;
 }
@@ -120,7 +109,6 @@ static const struct file_operations j_fops = {
      .llseek	= seq_lseek,
      .release	= single_release,
 };
-
 
 
 static int t_open (struct inode *inode, struct file *file)
@@ -158,15 +146,12 @@ static ssize_t t_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 
 	err = copy_to_user(buf, tmp->data, len);
 
-	printk(KERN_INFO "READ \"%s\" count=%i  ppos=%i %i counter=%i len=%i \n", buf, count, *ppos, ppos, counter, len);
+	printk(KERN_INFO "READ \"%s\" count=%i  ppos=%i %i len=%i \n", buf, count, *ppos, ppos,  len);
 
 	*ppos = i;
 
 	if (err != 0)
 		return -EFAULT;
-
-	counter = 0;
-	++file_info_local->counter;
 
 	return len;
 }
@@ -178,21 +163,18 @@ static ssize_t t_write (struct file *file, const char __user *buf, size_t count,
 	int err, i = 0;
 	struct j_node *tmp;
 
+
+
 	err = copy_from_user(t_storage,buf,count);
 	if (err != 0)
 		return -EFAULT;
 
 	printk(KERN_INFO "writing %s", buf);
 
-
-
-
-	tmp= create_j_node(10 , NULL, strlen(buf) );
+	tmp= create_j_node(1, NULL, strlen(buf) );
 	tmp->data = (char*) vmalloc( strlen(buf) + 1 );
 
 	memcpy( tmp->data, buf, strlen(buf) + 1 );
-
-
 
 	memory_buffer[memory_counter++] = tmp->data ;
 
@@ -211,13 +193,13 @@ static long t_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	printk(KERN_ALERT "ioct %i\n", cmd);
 
 	switch ( cmd ) {
-		case CMD0:
+		case READ:
 			printk(KERN_ALERT "ioct CMD0 %i\n", cmd);
 			break;
-		case CMD1:
+		case WRITE:
 			printk(KERN_ALERT "ioctl CMD1 %i\n", cmd);
 			break;
-		case 4:
+		case COMPLETE:
 			printk(KERN_ALERT "WAITING ON COMPETION\n" );
 			wait_for_completion(&comp);
 			printk(KERN_ALERT "COMPLETION DONE");
@@ -281,7 +263,7 @@ static int __init t_init(void) {
 
 	struct proc_dir_entry *entry;
     struct j_node *tmp;
-    int x,i;
+    int i;
 
     struct t_struct *file_info_local = &t_file_info;
     file_info_local->counter = 0;
@@ -305,7 +287,6 @@ static int __init t_init(void) {
 	cdev.ops = &t_fops;
 	i = cdev_add(&cdev, devno, LLDNUMDEVS);
 
-
 	if (i) {
 		printk(KERN_ALERT "Error (%d) adding LLD", i);
 		return i;
@@ -320,7 +301,7 @@ static int __init t_init(void) {
 	INIT_LIST_HEAD(&global_list.list);
 
 
-	tmp= create_j_node(i, "1-LOAD", strlen( "1-LOAD" ));
+	tmp= create_j_node(file_info_local->counter , "initialization", strlen( "initialization" ));
 
 	list_add_tail(&(tmp->list), &(global_list.list));
 

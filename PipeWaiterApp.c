@@ -1,5 +1,3 @@
-/*  CDDapp.c */
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -9,11 +7,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include "llddrvr.h"
 
-#define CMD1 1
-#define CMD2 2
-#define MYNUM 0x88888888
-#define MYSTR "From PipeWaiterApp"
 
 main() {
 	int fd, len, wlen;

@@ -1,5 +1,3 @@
-/*  CDDapp.c */
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -9,13 +7,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include "llddrvr.h"
 
-#define READ 1
-#define WRITE 2
-#define MYNUM 0x88888888
-#define MYSTR1 "3-APP"
-#define MYSTR2 "5-APP"
-#define MYSTR3 "6-APP"
 
 
 main() {
@@ -24,6 +17,9 @@ main() {
 	int num, rnum, i;
 	unsigned long inum = MYNUM;
 	unsigned long onum;
+//	int errno = 0;
+
+
 
 	strcpy(str, MYSTR1);
 
@@ -69,6 +65,8 @@ main() {
 	i = 0;
 	while (i++ < 127)
 		str[i] = 0;
+
+
 	// read
 	if ((len = read(fd, str, 1)) == -1) {
 		fprintf(stderr, "3. ERR:on read():%s\n", strerror(errno));
@@ -113,6 +111,7 @@ main() {
 		exit(1);
 	}
 	fprintf(stdout, "Read: \"%s\", len: %i\n", str,i);
+
 
 
 

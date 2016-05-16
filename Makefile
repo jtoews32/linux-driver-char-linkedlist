@@ -8,14 +8,10 @@ all: clean run
 
 run: load PipeWriterApp PipeWaiterApp
 	./PipeWaiterApp;
-	echo "2-SCRIPT" > /dev/llddrvr;
+	echo "echo input" > /dev/llddrvr;
 #	cat < /dev/CDD2;
-#	echo "Hello Galaxy" > /dev/CDD3;
-#	cat < /dev/CDD3;
-	echo "3-SCRIPT" > /dev/llddrvr;
+	echo "echo input" > /dev/llddrvr;
 #	cat < /dev/CDD2;
-#	echo "Hello Galaxy" > /dev/CDD3;
-#	cat < /dev/CDD3;
 	./PipeWriterApp;
 	dd if=/proc/sequence count=1;
 

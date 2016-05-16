@@ -47,8 +47,10 @@ int memory_counter = 0;
 unsigned int memory_buffer[4096];
 struct cdev cdev;
 dev_t  devno;
-char t_buf[4096];
+
+char t_buf[30];
 char *t_storage=t_buf;
+
 static char *string;
 static int data;
 
@@ -64,9 +66,7 @@ struct j_node *create_j_node(int id, char *data, int len) {
 	node->id = id;
 	node->data = data;
 	node->len = len;
-
-	++file_info_local->counter;
-	node->entry = file_info_local->counter;
+	node->entry = ++file_info_local->counter;
 
 	memory_buffer[memory_counter++] = node;
 	return node;
@@ -78,23 +78,23 @@ static int j_show(struct seq_file *m, void *v)
 	struct j_node *tmp;
 	int i = 0, j = 0;
 
-	seq_printf(m, "\n\nLinkedlist write entries: %i\n", memory_counter);
+	seq_printf(m, "llddrvr: contains following linked list entries\n\n" );
 
 	list_for_each_safe(pos, q, &global_list.list)
 	{
 		tmp = list_entry(pos, struct j_node, list);
-		seq_printf(m, "%d:\n    %i %s \n", i, tmp->entry, tmp->data);
+		seq_printf(m, "%d:\n    %i %s \n\0", i, tmp->entry, tmp->data);
 
 		i++;
 	}
 
-	seq_printf(m, "Memory allocations: %i\n", memory_counter);
+	seq_printf(m, "\n\nMemory allocations: %i\n\n\0", memory_counter);
 
 	for(j=0; j<memory_counter; j++) {
 		seq_printf(m, "%d ", memory_buffer[j]);
 	}
 
-	seq_printf(m, "\n\n\n" );
+	seq_printf(m, "\n\n\n\0" );
 
 	return 0;
 }
@@ -123,68 +123,87 @@ static int t_release (struct inode *inode, struct file *file)
 	return 0;
 }
 
+static ssize_t t_write (struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct j_node *tmp;
+	int err;
+
+	printk(KERN_INFO "Write called with ppos=%i , count=%i", count, *ppos);
+
+	err = copy_from_user(t_storage,buf,count);
+
+	printk(KERN_INFO "Write copied to %s claims length of ", t_storage, strlen(t_storage));
+
+
+	if (err != 0)
+		return -EFAULT;
+
+	tmp= create_j_node(1, NULL, strlen(t_storage) );
+	tmp->data = (char*) vmalloc( strlen(t_storage) + 1 );
+
+	memcpy( tmp->data, t_storage, strlen(t_storage) + 1 );
+	memory_buffer[memory_counter++] = tmp->data ;
+
+	list_add_tail(&(tmp->list), &(global_list.list));
+
+	complete(&comp);
+	counter += count;
+
+	printk(KERN_INFO "Write called with %s return count=%i", t_storage, count);
+
+	return count;
+}
+
+
+
+
 static ssize_t t_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 {
 	struct list_head *pos, *q;
 	struct j_node *tmp;
 	int len, err, i=0;
     struct t_struct *file_info_local = &t_file_info;
+    int entry = 	*ppos;
 
-
-    printk(KERN_INFO "REQUEST TO READ ppos=%i   \n",   *ppos  );
-
+    printk(KERN_INFO "Read ppos=%i   \n",   *ppos  );
 
 	list_for_each_safe(pos, q, &global_list.list)
 	{
-		tmp= list_entry(pos, struct j_node, list);
-		printk(KERN_INFO "READ %i-of-%d found: \"%s\" %i \n",i, file_info_local->counter, tmp->data, tmp->len);
-		len =  tmp->len;
+		tmp = list_entry(pos, struct j_node, list);
+
+		printk(KERN_INFO "Searching for %d - %i-of-%d found:%s %d \n",
+				entry,
+				i,
+				file_info_local->counter,
+				tmp->data,
+				tmp->len);
+
+		len = tmp->len;
 
 		if(i == *ppos) {
+			i++;
 			break;
 		}
+
 		i++;
 	}
 
 	err = copy_to_user(buf, tmp->data, len);
-
-	printk(KERN_INFO "READ \"%s\" count=%i  ppos=%i %i len=%i \n", buf, count, *ppos, ppos,  len);
-
-	*ppos = i;
-
 	if (err != 0)
 		return -EFAULT;
+
+
+
+	*ppos = i;
+	printk(KERN_INFO "Reed reset ppos \"%i\"  ", i );
+	printk(KERN_INFO "Read reset buf  \"%s\"  ", buf );
 
 	return len;
 }
 
 
 
-static ssize_t t_write (struct file *file, const char __user *buf, size_t count, loff_t *ppos)
-{
-	int err, i = 0;
-	struct j_node *tmp;
 
-	err = copy_from_user(t_storage,buf,count);
-	if (err != 0)
-		return -EFAULT;
-
-	printk(KERN_INFO "writing %s", buf);
-
-	tmp= create_j_node(1, NULL, strlen(buf) );
-	tmp->data = (char*) vmalloc( strlen(buf) + 1 );
-
-	memcpy( tmp->data, buf, strlen(buf) + 1 );
-
-	memory_buffer[memory_counter++] = tmp->data ;
-
-
-	list_add_tail(&(tmp->list), &(global_list.list));
-
-	complete(&comp);
-	counter += count;
-	return count;
-}
 
 
 static long t_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
@@ -270,26 +289,32 @@ static long t_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static loff_t t_llseek(struct file *file, loff_t newpos, int whence) {
 
-	int pos;
+	int pos, i = 0;
 	struct t_struct *file_info_local = &t_file_info;
+	struct list_head *posp, *q;
+
+
+	list_for_each_safe(posp, q, &global_list.list)
+	{
+		i++;
+	}
 
 	switch (whence) {
 	case SEEK_SET:        // CDDoffset can be 0 or +ve
 		pos = newpos;
-		printk(KERN_ALERT "llseek SEEK_SET %i\n", pos);
+		printk(KERN_INFO "Lseek reset ppos %i on SEEK_SET of %i\n", pos, i);
 		break;
 	case SEEK_CUR:        // CDDoffset can be 0 or +ve
 		pos = (file->f_pos + newpos);
-		printk(KERN_ALERT "llseek SEEK_SET %i\n", pos);
+		printk(KERN_INFO "Lseek reset ppos %i on SEEK_CUR of %i\n", pos, i);
 		// pos=(file->f_pos + newpos);
 		//
 		break;
 	case SEEK_END:        // CDDoffset can be 0 or +ve
 
-		// pos=(thisCDD->counter + newpos);
-		// count list and say where the end is
+		pos=i-1;
 
-		printk(KERN_ALERT "llseek SEEK_SET %i\n", 20);
+		printk(KERN_INFO "Lseek reset ppos %i on SEEK_END of %i\n", pos,i);
 
 		break;
 	default:
@@ -382,7 +407,7 @@ static void __exit t_exit(void) {
 
 		tmp= list_entry(pos, struct j_node, list);
 
-		printk(KERN_INFO "CLEANUP \"%s\"", tmp->data);
+		printk(KERN_INFO "Remove \"%s\"", tmp->data);
 		vfree(tmp->data);
 		list_del(pos);
 		kfree(tmp);

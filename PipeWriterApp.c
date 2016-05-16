@@ -114,14 +114,14 @@ main() {
 
 
 
-
+/*
 	// write using ioctl()
 	if ((len = ioctl(fd, WRITE, 0)) == -1) {
 		fprintf(stderr,"ERR:on ioctl-write():%s\n",strerror(errno));
 
 	}
 	fprintf(stdout, "Ioctl: len: %i\n", len);
-
+*/
 
 	/*
 	// read using ioctl()

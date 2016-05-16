@@ -16,6 +16,9 @@
 #include <linux/seq_file.h>
 #include <linux/jiffies.h>
 #include <linux/completion.h>
+
+
+
 #include "llddrvr.h"
 
 MODULE_LICENSE("GPL");
@@ -46,6 +49,9 @@ struct cdev cdev;
 dev_t  devno;
 char t_buf[4096];
 char *t_storage=t_buf;
+static char *string;
+static int data;
+
 
 struct completion comp;
 DECLARE_COMPLETION(comp);
@@ -183,6 +189,61 @@ static ssize_t t_write (struct file *file, const char __user *buf, size_t count,
 
 static long t_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+
+	printk(KERN_ALERT "ioctl %i %i", cmd , arg);
+	int retval = 0;
+
+	switch ( cmd ) {
+
+
+
+
+
+	case 1:
+		printk(KERN_ALERT "ioctl write");
+		// for "writing" data to arg from userspace
+		// if (!access_ok(VERIFY_WRITE, (void __user *) arg, sizeof(int)))
+			// return -EFAULT;
+
+		// use copy_from_user for pointer references
+		//if (copy_from_user(&data, (int *) arg, sizeof(int)))
+		//		return -EFAULT;
+		// otherwise, use straightforward reference.
+
+		printk("w. data==%ld\n",(unsigned long) arg);
+		retval = data = (unsigned long) arg;
+		break;
+
+	case 2:// for reading data from arg into userspace
+
+
+		if (!access_ok(VERIFY_READ, (void __user *) arg, sizeof(int))) {
+			printk(KERN_ALERT "access bump");
+			return -EFAULT;
+		}
+
+		// use copy_to_user for pointer references
+		if (copy_to_user((int *) arg, &data, sizeof(int))) {
+
+			printk(KERN_ALERT "ioctl bail");
+			return -EFAULT;
+		}
+
+		printk(KERN_ALERT "ioctl read");
+		printk("r. data==%ld\n",(unsigned long) data);
+		retval = data;
+		break;
+
+
+
+	default:
+		printk(KERN_ALERT "ioctl bail");
+		retval = -EINVAL;
+	}
+	return retval;
+
+
+	/*
 	int retval = 0;
 	printk(KERN_ALERT "ioct %i\n", cmd);
 
@@ -203,6 +264,7 @@ static long t_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 	return retval;
+	*/
 }
 
 

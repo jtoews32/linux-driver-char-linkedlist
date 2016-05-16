@@ -7,12 +7,10 @@ all: clean run
 	@make -s clean
 
 run: load PipeWriterApp PipeWaiterApp
-	./PipeWaiterApp;
 	echo "echo input" > /dev/llddrvr;
-#	cat < /dev/CDD2;
 	echo "echo input" > /dev/llddrvr;
-#	cat < /dev/CDD2;
 	./PipeWriterApp;
+	./PipeWaiterApp;
 	dd if=/proc/sequence count=1;
 
 load: llddrvr.o
